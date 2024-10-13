@@ -289,4 +289,25 @@
     </tr>
 </table>
 
+  <div id="myModal" class="modal">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <img class="modal-content" id="img01">
+  </div>
 
+  <!-- 在这里添加JavaScript代码 -->
+  <script>
+    function openModal(src) {
+      var modal = document.getElementById("myModal");
+      var modalImg = document.getElementById("img01");
+      modal.style.display = "block";
+      modalImg.src = src;
+    }
+
+    function closeModal() {
+      var modal = document.getElementById("myModal");
+      modal.style.display = "none";
+    }
+  </script>
+
+</body>
+</html>
