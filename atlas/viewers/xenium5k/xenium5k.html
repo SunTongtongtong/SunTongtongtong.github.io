@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="../../users.js"></script>
+<script src="../../auth.js" data-root="../../"></script>
+<title>RA Synovium Xenium 5K</title>
+<style>
+  :root { --bg:#111; --panel:#1b1b1f; --fg:#ddd; --mut:#888; --acc:#4ea1ff; --warn:#ff8a5c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.45 -apple-system,system-ui,sans-serif; display:flex; height:100vh; overflow:hidden; }
+  #left { flex:1.5; display:flex; flex-direction:column; min-width:0; border-right:1px solid #2a2a30; }
+  #bar { padding:8px 10px; background:var(--panel); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #osd { flex:1; background:#000; }
+  #right { flex:1; overflow-y:auto; padding:12px 16px 40px; min-width:400px; }
+  select, input { background:#111; color:var(--fg); border:1px solid #333; border-radius:4px; }
+  input[type=range] { width:90px; vertical-align:middle; }
+  h1 { font-size:16px; margin:0 0 2px; } h2 { font-size:14px; margin:18px 0 6px; color:#bbb; }
+  .sub { color:var(--mut); font-size:12px; }
+  .stats { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  .stat { background:var(--panel); padding:5px 9px; border-radius:6px; min-width:96px; }
+  .stat b { display:block; font-size:15px; font-variant-numeric:tabular-nums; } .stat span { color:var(--mut); font-size:11px; }
+  .grp { margin:6px 0; } .grp .gl { color:var(--mut); font-size:11px; margin-bottom:3px; }
+  .gb { display:inline-block; background:var(--panel); padding:3px 8px; border-radius:4px; cursor:pointer; font-size:12px; margin:0 4px 4px 0; border:1px solid transparent; }
+  .gb small { color:var(--mut); margin-left:4px; }
+  .gb.on { border-color:var(--acc); background:#1d3350; }
+  .pt { display:inline-block; padding:4px 10px; border-radius:4px; margin:0 6px 6px 0; background:var(--panel); color:var(--fg); text-decoration:none; border:1px solid transparent; font-size:12px; }
+  .pt.on { border-color:var(--acc); background:#1d3350; }
+  #legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--mut); }
+  #legend canvas { width:140px; height:10px; border-radius:2px; }
+  table.cl { border-collapse:collapse; width:100%; font-size:12px; }
+  table.cl td, table.cl th { border-bottom:1px solid #2a2a30; padding:4px 6px; text-align:left; vertical-align:top; }
+  table.cl th { color:var(--mut); font-weight:500; }
+  table.cl tr.hl { cursor:pointer; } table.cl tr.hl:hover { background:#1d1d22; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-2px; margin-right:4px; }
+  .note { color:var(--mut); font-size:12px; padding:8px 10px; background:var(--panel); border-radius:6px; margin-top:12px; }
+  .note b { color:var(--fg); }
+  kbd { background:#26262c; border-radius:3px; padding:0 4px; font-size:11px; }
+  label { user-select:none; }
+</style>
+</head>
+<body>
+<div id="left">
+  <div id="bar">
+    <span style="display:flex;gap:12px;align-items:center;padding-right:6px;border-right:1px solid #333"><a href="../../index.html" style="color:var(--acc);text-decoration:none;font-weight:500;">← Atlas</a> <a href="../visiumhd/visiumhd.html#ov=MS4A1&s=1" style="color:var(--mut);text-decoration:none;font-weight:500;">Visium HD</a> <b style="color:var(--fg)">Xenium 5K</b> <a href="#" onclick="atlasLogout();return false" style="color:var(--mut);text-decoration:none;font-weight:500;">Sign out</a></span>
+    <label>Overlay <select id="ov"></select></label>
+    <label><input type="checkbox" id="sm" checked> Smooth (<kbd>S</kbd>)</label>
+    <label>Opacity <input type="range" id="op" min="0" max="1" step="0.05" value="0.8"></label>
+    <label>Fluorescence <input type="range" id="bo" min="0" max="1" step="0.05" value="1"></label>
+    <div id="legend"></div>
+  </div>
+  <div id="osd"></div>
+</div>
+<div id="right"></div>
+<script src="../visiumhd/openseadragon.min.js"></script>
+<script>
+// 可用病人列表（与 p<N>/data.js 对应）
+const PATIENTS = [3];
+// 聚类的初步注释（按 t 检验前 10 个标记基因人工判读，仅供参考）
+window.X5K_ANN = { 3: {1:'Plasma cells (XBP1, MZB1, SDC1)', 2:'Low-quality / low-count cells (non-specific markers)',
+  3:'Sublining fibroblasts (CXCL12, PDGFRA, COL6A1)', 4:'Macrophages (C1QA/C, CD14, STAB1, F13A1)', 5:'T cells (CD3E, IL7R, IL32, LTB)',
+  6:'Endothelial cells (VWF, PLVAP, PECAM1)', 7:'Lining fibroblasts (PRG4, MMP3, MMP1)', 8:'Mural cells / pericytes (ACTA2, NOTCH3, PDGFRB)',
+  9:'Dendritic cells (CLEC10A, CIITA, HLA-DQA1)', 10:'Adipocytes (PLIN1, ADIPOQ)', 11:'Low-quality cells (as cluster 2)'} };
+const HP = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const PID = PATIENTS.includes(+HP.p) ? +HP.p : PATIENTS[0];
+const s = document.createElement('script'); s.src = `p${PID}/data.js`; s.onload = init; document.head.appendChild(s);
+
+function init(){
+const D = window.X5K[PID], B = D.base, $ = q => document.querySelector(q);
+const VIR = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[110,206,88],[181,222,43],[253,231,37]];
+function cmap(t){ t=Math.max(0,Math.min(1,t)); const f=t*(VIR.length-1), i=Math.min(Math.floor(f),VIR.length-2), r=f-i, a=VIR[i], b=VIR[i+1];
+  return `rgb(${a.map((v,k)=>Math.round(v+(b[k]-v)*r)).join(',')})`; }
+const fmt = (v,d=0) => v==null||isNaN(v) ? '—' : (+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
+const ANN = window.X5K_ANN && window.X5K_ANN[PID] || {};
+
+// ---------- 叠加选项 ----------
+const ORDER = ['composite','clusters', ...D.groups.flatMap(g=>g[1])];
+$('#ov').innerHTML = '<option value="">None</option><option value="composite">Multi-gene composite</option><option value="clusters">Leiden clusters</option>' +
+  D.groups.map(([g,gs])=>`<optgroup label="${g}">${gs.map(x=>`<option value="${x}">${x}</option>`).join('')}</optgroup>`).join('');
+
+// ---------- 底图：荧光瓦片 ----------
+const viewer = OpenSeadragon({ element:$('#osd'), prefixUrl:'', showNavigationControl:false, imageSmoothingEnabled:false,
+  maxZoomPixelRatio:4, animationTime:0.3, showNavigator:true, navigatorPosition:'BOTTOM_RIGHT',
+  tileSources:{ width:B.W, height:B.H, tileSize:B.tile, tileOverlap:0, minLevel:B.min_level, maxLevel:B.max_level,
+    getTileUrl:(l,x,y)=>`p${PID}/tiles/${l}/${x}_${y}.jpg` } });
+let ovItem=null, baseItem=null;
+viewer.addHandler('open', ()=>{ baseItem=viewer.world.getItemAt(0); setOverlay(); });
+
+const isGene = k => D.overlays[k] != null;
+function ovUrl(k){ const smooth = isGene(k) && $('#sm').checked && D.overlays[k].hi_s!=null; return `p${PID}/ov/${k}${smooth?'_s':''}.png`; }
+function setOverlay(){
+  if (ovItem){ viewer.world.removeItem(ovItem); ovItem=null; }
+  const k=$('#ov').value; drawLegend(k);
+  document.querySelectorAll('.gb').forEach(e=>e.classList.toggle('on', e.dataset.k==k));
+  history.replaceState(null,'', '#'+new URLSearchParams({p:PID, ov:k, s:$('#sm').checked?1:0}).toString());
+  if (!k) return;
+  viewer.addTiledImage({ tileSource:{type:'image', url:ovUrl(k), buildPyramid:true}, x:0, y:0, width:1,
+    opacity:+$('#op').value, success:e=>ovItem=e.item });
+}
+function drawLegend(k){
+  const L=$('#legend'); L.innerHTML=''; if (!k) return;
+  if (k=='clusters'){ L.innerHTML='Colours: see cluster table on the right'; return; }
+  if (k=='composite'){ L.innerHTML=D.composite.map(c=>`<span><span class="sw" style="background:rgb(${c.rgb.join(',')})"></span>${c.genes.join('/')}</span>`).join(''); return; }
+  const o=D.overlays[k], smooth=$('#sm').checked && o.hi_s!=null;
+  L.innerHTML=`<span>${smooth?'0':'1'}</span><canvas width="140" height="10"></canvas><span>${smooth?'high':`≥${fmt(o.hi,0)}`}</span>`+
+    `<span>${smooth?`transcripts, Gaussian σ = ${fmt(D.sigma*D.bin_um,0)} µm`:`transcripts per ${D.bin_um} µm bin, log scale`}</span>`;
+  const c=L.querySelector('canvas').getContext('2d'); for(let x=0;x<140;x++){ c.fillStyle=cmap(x/139); c.fillRect(x,0,1,10); }
+}
+$('#ov').onchange=setOverlay; $('#sm').onchange=setOverlay;
+$('#op').oninput=()=>ovItem&&ovItem.setOpacity(+$('#op').value);
+$('#bo').oninput=()=>baseItem&&baseItem.setOpacity(+$('#bo').value);
+
+// ---------- 右侧 ----------
+const C=D.clinical, wmm=D.W0*0.2125/1000, hmm=D.H0*0.2125/1000;
+let h = `<h1>RA synovium · Xenium Prime 5K</h1>
+<div class="sub">Bhamidipati et al. 2026, <i>Nat Immunol</i> · Zenodo 15058262 · pre-treatment biopsy · ${fmt(D.n_genes)}-gene panel · single-cell resolution<br>
+Image ${fmt(wmm,1)} × ${fmt(hmm,1)} mm at 0.2125 µm/px (shown here at ${fmt(B.px_um,3)} µm/px)</div>
+<h2>Patient</h2>
+<div>${PATIENTS.map(p=>`<a class="pt ${p==PID?'on':''}" href="#p=${p}" onclick="location.hash='p=${p}';location.reload();return false;">Patient ${p}</a>`).join('')}</div>
+<div class="stats">
+  <div class="stat"><b>${C['Pathotype']}</b><span>pathotype</span></div>
+  <div class="stat"><b>${C['Sex']} · ${C['Age']}</b><span>sex · age</span></div>
+  <div class="stat"><b>${C['Treatment']}</b><span>treatment</span></div>
+  <div class="stat"><b>${fmt(C['DAS28-CRP_baseline'],2)} → ${fmt(C['DAS28-CRP 6 months'],2)}</b><span>DAS28-CRP, 0 → 6 months</span></div>
+  <div class="stat"><b>${C['Response']}</b><span>response at 6 months</span></div>
+</div>
+<div class="stats">
+  <div class="stat"><b>${fmt(D.n_cells)}</b><span>cells</span></div>
+  <div class="stat"><b>${fmt(D.n_tx_good/1e6,1)} M</b><span>transcripts (QV ≥ ${D.qv})</span></div>
+  <div class="stat"><b>${fmt(D.median_tx_cell)}</b><span>transcripts / cell (median)</span></div>
+  <div class="stat"><b>${fmt(D.median_genes_cell)}</b><span>genes / cell (median)</span></div>
+  <div class="stat"><b>${fmt(D.tissue_mm2,1)} mm²</b><span>tissue area</span></div>
+</div>
+<h2>Marker genes <span class="sub">click to show; <kbd>↑</kbd><kbd>↓</kbd> to step, <kbd>0</kbd> to clear</span></h2>
+<div class="grp"><span class="gb" data-k="composite">Multi-gene composite</span><span class="gb" data-k="clusters">Leiden clusters</span></div>
+${D.groups.map(([g,gs])=>`<div class="grp"><div class="gl">${g}</div>${gs.map(x=>{const o=D.overlays[x];
+  return `<span class="gb" data-k="${x}" title="${fmt(o.total)} transcripts">${x}<small>${fmt(100*o.frac,1)}%</small></span>`}).join('')}</div>`).join('')}
+<div class="sub">Percentage = fraction of ${D.bin_um} µm tissue bins with at least one transcript.</div>
+
+<h2>Leiden clusters <span class="sub">click a row to show the cluster map</span></h2>
+<table class="cl"><tr><th>Cluster</th><th>Cells</th><th>Provisional label</th><th>Top marker genes</th></tr>
+${D.clusters.map(c=>`<tr class="hl"><td><span class="sw" style="background:rgb(${c.color.join(',')})"></span>${c.id}</td><td>${fmt(c.n)}</td><td>${ANN[c.id]||''}</td><td class="sub">${c.top.slice(0,8).join(', ')}</td></tr>`).join('')}
+</table>
+<div class="sub">Cells are filled with their segmentation outline. Labels are read manually from marker genes; no formal cell-type annotation has been run.</div>
+
+<div class="note">
+ <b>About this dataset</b><br>
+ · One of 17 pre-treatment RA synovial biopsies profiled with the Xenium Prime 5K panel; the same patients were re-biopsied after treatment (not shown here).<br>
+ · Background is the Xenium morphology stain: <span style="color:#6f8fff">DAPI</span>, <span style="color:#ff6f80">αSMA / Vimentin</span>, <span style="color:#6fff9a">ATP1A1 / CD45 / E-cadherin</span>. No H&amp;E has been released for this cohort.<br>
+ · Some common markers are not on the 5K panel (PTPRC, JCHAIN, IGHG1, COL1A1); panel substitutes are shown instead.
+</div>
+<div class="note">
+ · Raw overlay: transcripts with QV ≥ ${D.qv} counted in ${D.bin_um} µm bins, log scale, scaled to P99 of non-zero bins; empty bins are transparent.<br>
+ · Smoothed overlay: Gaussian σ = ${fmt(D.sigma*D.bin_um,0)} µm, scaled to P99.5 within tissue, low values fade out.<br>
+ · Clusters: Leiden on the cell × gene matrix (normalise, log1p, PCA 30, 15 neighbours, resolution 0.6), numbered by size.<br>
+ · Shortcuts: <kbd>S</kbd> smoothing, <kbd>↑</kbd><kbd>↓</kbd> step overlay, <kbd>0</kbd> clear. The URL keeps the current view (e.g. <code>#p=${PID}&amp;ov=MS4A1</code>).
+</div>`;
+$('#right').innerHTML = h;
+document.querySelectorAll('.gb').forEach(e=>e.onclick=()=>{ $('#ov').value=e.dataset.k; setOverlay(); });
+document.querySelectorAll('tr.hl').forEach(e=>e.onclick=()=>{ $('#ov').value='clusters'; setOverlay(); });
+
+window.onkeydown=e=>{
+  if (e.target.tagName=='SELECT') return;
+  if (e.key=='s'||e.key=='S'){ $('#sm').checked^=1; setOverlay(); }
+  else if (e.key=='0'){ $('#ov').value=''; setOverlay(); }
+  else if (e.key=='ArrowDown'||e.key=='ArrowUp'){ e.preventDefault();
+    const i=ORDER.indexOf($('#ov').value), n=ORDER.length; $('#ov').value=ORDER[((i<0?-1:i)+(e.key=='ArrowDown'?1:-1)+n)%n]; setOverlay(); }
+};
+if (HP.s=='0') $('#sm').checked=false;
+$('#ov').value = HP.ov!=null ? HP.ov : 'composite';
+}
+</script>
+</body>
+</html>

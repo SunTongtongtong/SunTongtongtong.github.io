@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="../../users.js"></script>
+<script src="../../auth.js" data-root="../../"></script>
+<title>RA Synovium Visium HD</title>
+<style>
+  :root { --bg:#111; --panel:#1b1b1f; --fg:#ddd; --mut:#888; --acc:#4ea1ff; --warn:#ff8a5c; --ok:#7fdc7f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.45 -apple-system,system-ui,sans-serif; display:flex; height:100vh; overflow:hidden; }
+  #left { flex:1.5; display:flex; flex-direction:column; min-width:0; border-right:1px solid #2a2a30; }
+  #bar { padding:8px 10px; background:var(--panel); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #osd { flex:1; background:#000; }
+  #right { flex:1; overflow-y:auto; padding:12px 16px 40px; min-width:400px; }
+  select, input { background:#111; color:var(--fg); border:1px solid #333; border-radius:4px; }
+  input[type=range] { width:90px; vertical-align:middle; }
+  h1 { font-size:16px; margin:0 0 2px; } h2 { font-size:14px; margin:18px 0 6px; color:#bbb; }
+  .sub { color:var(--mut); font-size:12px; }
+  .stats { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  .stat { background:var(--panel); padding:5px 9px; border-radius:6px; min-width:96px; }
+  .stat b { display:block; font-size:15px; font-variant-numeric:tabular-nums; } .stat span { color:var(--mut); font-size:11px; }
+  .grp { margin:6px 0; } .grp .gl { color:var(--mut); font-size:11px; margin-bottom:3px; }
+  .gb { display:inline-block; background:var(--panel); padding:3px 8px; border-radius:4px; cursor:pointer; font-size:12px; margin:0 4px 4px 0; border:1px solid transparent; }
+  .gb small { color:var(--mut); margin-left:4px; }
+  .gb.on { border-color:var(--acc); background:#1d3350; }
+  #legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--mut); }
+  #legend canvas { width:140px; height:10px; border-radius:2px; }
+  table.cl { border-collapse:collapse; width:100%; font-size:12px; }
+  table.cl td, table.cl th { border-bottom:1px solid #2a2a30; padding:4px 6px; text-align:left; vertical-align:top; }
+  table.cl th { color:var(--mut); font-weight:500; }
+  .sw { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-2px; margin-right:4px; }
+  .note { color:var(--mut); font-size:12px; padding:8px 10px; background:var(--panel); border-radius:6px; margin-top:12px; }
+  .note b { color:var(--fg); } .warn { color:var(--warn); }
+  kbd { background:#26262c; border-radius:3px; padding:0 4px; font-size:11px; }
+  label { user-select:none; }
+</style>
+</head>
+<body>
+<div id="left">
+  <div id="bar">
+    <span style="display:flex;gap:12px;align-items:center;padding-right:6px;border-right:1px solid #333"><a href="../../index.html" style="color:var(--acc);text-decoration:none;font-weight:500;">← Atlas</a> <b style="color:var(--fg)">Visium HD</b> <a href="../xenium5k/xenium5k.html#p=3&ov=composite" style="color:var(--mut);text-decoration:none;font-weight:500;">Xenium 5K</a> <a href="#" onclick="atlasLogout();return false" style="color:var(--mut);text-decoration:none;font-weight:500;">Sign out</a></span>
+    <label>Overlay <select id="ov"></select></label>
+    <label><input type="checkbox" id="sm" checked> Smooth (<kbd>S</kbd>)</label>
+    <label>Opacity <input type="range" id="op" min="0" max="1" step="0.05" value="0.75"></label>
+    <label><input type="checkbox" id="he" checked> H&amp;E (<kbd>H</kbd>)</label>
+    <div id="legend"></div>
+  </div>
+  <div id="osd"></div>
+</div>
+<div id="right"></div>
+<script src="openseadragon.min.js"></script>
+<script src="vhd_data.js"></script>
+<script>
+const D = window.VHD, $ = s => document.querySelector(s), M = D.metrics;
+const VIR = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[110,206,88],[181,222,43],[253,231,37]];
+function cmap(t){ t=Math.max(0,Math.min(1,t)); const f=t*(VIR.length-1), i=Math.min(Math.floor(f),VIR.length-2), r=f-i, a=VIR[i], b=VIR[i+1];
+  return `rgb(${a.map((v,k)=>Math.round(v+(b[k]-v)*r)).join(',')})`; }
+const fmt = (v,d=0) => v==null||isNaN(v) ? '—' : (+v).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
+
+// 聚类的初步注释（根据 spaceranger graphclust 的差异基因人工判读，仅供参考）
+const ANN = {1:'Sublining fibroblasts / ECM (COMP+, COL1A1)',2:'High mitochondrial reads (likely low-quality or necrotic)',3:'Lining fibroblasts (PRG4, MMP3)',
+  4:'Plasma cells (IG heavy/light chains, JCHAIN, XBP1)',5:'Tissue-resident macrophages (LYVE1, FOLR2, CD163)',6:'Endothelial cells (VWF, PLVAP)',
+  7:'Mural cells / smooth muscle (MYH11, ACTA2, NOTCH3)',8:'Mast cells (CPA3, KIT, MS4A2)',9:'Mixed immune (CXCR4, CD74)',
+  10:'Vascular smooth muscle (MYH11, CNN1)',11:'T / B lymphocytes (TRAC, IL7R, MS4A1)'};
+
+// ---------- 叠加选项 ----------
+const ORDER = ['clusters','total_umi', ...D.groups.flatMap(g=>g[1])];
+$('#ov').innerHTML = '<option value="">None</option><option value="clusters">graphclust clusters</option><option value="total_umi">Total UMI</option>' +
+  D.groups.map(([g,gs])=>`<optgroup label="${g}">${gs.map(x=>`<option value="${x}">${x}</option>`).join('')}</optgroup>`).join('');
+
+// ---------- 大图 ----------
+const viewer = OpenSeadragon({ element:$('#osd'), prefixUrl:'', showNavigationControl:false, imageSmoothingEnabled:false,
+  maxZoomPixelRatio:8, animationTime:0.3, showNavigator:true, navigatorPosition:'BOTTOM_RIGHT',
+  tileSources:{ type:'image', url:'he.jpg', buildPyramid:true } });
+let ovItem=null, heItem=null;
+viewer.addHandler('open', ()=>{ heItem=viewer.world.getItemAt(0); setOverlay(); });
+
+function ovUrl(k){ const smooth=$('#sm').checked && D.overlays[k] && D.overlays[k].hi_s!=null; return `ov/${k}${smooth?'_s':''}.png`; }
+function setOverlay(){
+  if (ovItem){ viewer.world.removeItem(ovItem); ovItem=null; }
+  const k=$('#ov').value; drawLegend(k);
+  document.querySelectorAll('.gb').forEach(e=>e.classList.toggle('on', e.dataset.k==k));
+  history.replaceState(null,'', '#'+new URLSearchParams({ov:k, s:$('#sm').checked?1:0}).toString());
+  if (!k) return;
+  viewer.addTiledImage({ tileSource:{type:'image', url:ovUrl(k), buildPyramid:true}, x:0, y:0, width:1,
+    opacity:+$('#op').value, success:e=>ovItem=e.item });
+}
+function drawLegend(k){
+  const L=$('#legend'); L.innerHTML=''; if (!k) return;
+  const o=D.overlays[k];
+  if (o.kind=='cat'){ L.innerHTML='Colours: see cluster table on the right'; return; }
+  const smooth=$('#sm').checked && o.hi_s!=null;
+  const hi = smooth ? `${fmt(o.hi_s,2)} (smoothed)` : `≥${fmt(o.hi,0)} UMI`;
+  L.innerHTML=`<span>${smooth?'0':'1'}</span><canvas width="140" height="10"></canvas><span>${hi}</span>`+
+    `<span>${smooth?`Gaussian smoothing, σ = 3 bins (24 µm)`:'Per 8 µm bin, log scale, zero = transparent'}</span>`;
+  const c=L.querySelector('canvas').getContext('2d'); for(let x=0;x<140;x++){ c.fillStyle=cmap(x/139); c.fillRect(x,0,1,10); }
+}
+$('#ov').onchange=setOverlay; $('#sm').onchange=setOverlay;
+$('#op').oninput=()=>ovItem&&ovItem.setOpacity(+$('#op').value);
+$('#he').onchange=()=>heItem&&heItem.setOpacity($('#he').checked?1:0);
+
+// ---------- 右侧 ----------
+const um=D.um_px, wmm=D.W*um/1000, hmm=D.H*um/1000;
+let h = `<h1>RA synovium · Visium HD</h1>
+<div class="sub">Bhamidipati et al. 2026, <i>Nat Immunol</i> · Zenodo 16995699 · sample ${M['Sample ID']} · whole-transcriptome probes · 8 µm bins<br>
+H&E ${D.W}×${D.H} px at <b>${fmt(um,2)} µm/px</b> (${fmt(wmm,1)} × ${fmt(hmm,1)} mm)</div>
+<div class="stats">
+  <div class="stat"><b>${fmt(D.n_bins)}</b><span>8 µm bins under tissue</span></div>
+  <div class="stat"><b>${fmt(M['Mean UMIs Under Tissue per Bin 8 µm'],0)}</b><span>UMI / bin (mean)</span></div>
+  <div class="stat"><b>${fmt(M['Mean Genes Under Tissue per Bin 8 µm'],0)}</b><span>genes / bin (mean)</span></div>
+  <div class="stat"><b>${fmt(M['Total Genes Detected Under Tissue 8 µm'])}</b><span>genes detected</span></div>
+  <div class="stat"><b>${fmt(100*M['Sequencing Saturation'],1)}%</b><span>sequencing saturation</span></div>
+  <div class="stat"><b>${fmt(M['Number of Reads']/1e6,0)} M</b><span>reads</span></div>
+</div>
+<h2>Marker genes <span class="sub">click to show; <kbd>↑</kbd><kbd>↓</kbd> to step, <kbd>0</kbd> to clear</span></h2>
+<div class="grp"><span class="gb" data-k="clusters">graphclust clusters</span><span class="gb" data-k="total_umi">Total UMI</span></div>
+${D.groups.map(([g,gs])=>`<div class="grp"><div class="gl">${g}</div>${gs.map(x=>{const o=D.overlays[x];
+  return `<span class="gb" data-k="${x}" title="Total UMI ${fmt(o.total)}">${x}<small>${fmt(100*o.frac,1)}%</small></span>`}).join('')}</div>`).join('')}
+<div class="sub">Percentage = fraction of bins with UMI &gt; 0. 8 µm bins are sparse (PTPRC is detected in only 0.4%), so smoothed maps are shown by default.</div>
+
+<h2>graphclust clusters (Space Ranger)</h2>
+<table class="cl"><tr><th>Cluster</th><th>Bins</th><th>Provisional label</th><th>Top marker genes</th></tr>
+${D.clusters.map(c=>`<tr><td><span class="sw" style="background:rgb(${c.color.join(',')})"></span>${c.id}</td><td>${fmt(c.n)}</td><td>${ANN[c.id]||''}</td><td class="sub">${c.top.join(', ')}</td></tr>`).join('')}
+</table>
+<div class="sub">Labels are read manually from differentially expressed genes; no formal cell-type annotation has been run.</div>
+
+<div class="note">
+ <b>About this dataset</b><br>
+ · One treatment-naive RA synovial sample; a large tissue piece covering the full 6.5 × 6.5 mm capture area.<br>
+ · Expression exists only inside the capture area; tissue outside it (including the lower-right piece) has H&E only.<br>
+ · The released H&E is the down-sampled Space Ranger hires image (${fmt(um,2)} µm/px): tissue compartments are clear, individual nuclei are not.<br>
+ · Only 8 µm bins were released (no 2 µm bins).<br>
+ · Cluster 2 (high mitochondrial reads) sits mostly at the capture-area edge and in loose tissue and is likely low quality.
+</div>
+<div class="note">
+ · Raw overlay: each 8 µm bin drawn as a ${fmt(2*D.bin_um/2/um,1)} px square, log1p then scaled to the P99 of non-zero bins; zero UMI is transparent.<br>
+ · Smoothed overlay: Gaussian on the bin grid, σ = 3 bins (24 µm), scaled to P99.5, low values fade out.<br>
+ · Shortcuts: <kbd>S</kbd> smoothing, <kbd>H</kbd> H&E, <kbd>↑</kbd><kbd>↓</kbd> step overlay, <kbd>0</kbd> clear. The URL keeps the current overlay (e.g. <code>#ov=PRG4&amp;s=1</code>), so links can be shared.
+</div>`;
+$('#right').innerHTML = h;
+document.querySelectorAll('.gb').forEach(e=>e.onclick=()=>{ $('#ov').value=e.dataset.k; setOverlay(); });
+
+window.onkeydown=e=>{
+  if (e.target.tagName=='SELECT') return;
+  if (e.key=='s'||e.key=='S'){ $('#sm').checked^=1; setOverlay(); }
+  else if (e.key=='h'||e.key=='H'){ $('#he').checked^=1; $('#he').onchange(); }
+  else if (e.key=='0'){ $('#ov').value=''; setOverlay(); }
+  else if (e.key=='ArrowDown'||e.key=='ArrowUp'){ e.preventDefault();
+    const i=ORDER.indexOf($('#ov').value), n=ORDER.length; $('#ov').value=ORDER[((i<0?-1:i)+(e.key=='ArrowDown'?1:-1)+n)%n]; setOverlay(); }
+};
+const HP=Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+if (HP.s=='0') $('#sm').checked=false;
+$('#ov').value = HP.ov!=null ? HP.ov : 'clusters';
+</script>
+</body>
+</html>

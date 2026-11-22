@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RA Synovium Atlas</title>
+<script src="users.js"></script>
+<script src="auth.js" data-root="./"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#07080c; --panel:#0f1118; --panel2:#151824; --line:#232736; --fg:#eef0f6; --mut:#8d93a6;
+    --cyan:#22d3e6; --mag:#ff3fc8; --amb:#ffc83d; --org:#ff7a2e; --blu:#4a6bd8;
+    --live:#56e39f; --proc:#ffc83d; --wait:#6b7186;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 Inter, -apple-system, system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:inherit; text-decoration:none; }
+  .serif { font-family:"Instrument Serif", Georgia, serif; font-weight:400; }
+
+  /* ---------- 首屏 ---------- */
+  .hero { position:relative; height:100vh; min-height:620px; overflow:hidden; }
+  .hero .bg { position:absolute; inset:-4%; background:url(img/hero.jpg) center/cover no-repeat; animation:drift 48s ease-in-out infinite alternate; }
+  @keyframes drift { from { transform:scale(1.04) translate(0,0); } to { transform:scale(1.14) translate(-2.5%,-2%); } }
+  @media (prefers-reduced-motion:reduce) { .hero .bg { animation:none; } }
+  .hero .scrim { position:absolute; inset:0; background:
+      linear-gradient(90deg, rgba(7,8,12,.92) 0%, rgba(7,8,12,.62) 38%, rgba(7,8,12,.08) 70%),
+      linear-gradient(0deg, rgba(7,8,12,1) 0%, rgba(7,8,12,0) 28%),
+      linear-gradient(180deg, rgba(7,8,12,.75) 0%, rgba(7,8,12,0) 16%); }
+  nav { position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:26px 48px; z-index:3; font-size:13px; letter-spacing:.04em; }
+  nav .brand { font-weight:600; text-transform:uppercase; letter-spacing:.18em; font-size:12px; }
+  nav .links { display:flex; gap:28px; color:var(--mut); }
+  nav .links a:hover { color:var(--fg); }
+  .hero .content { position:absolute; left:48px; bottom:13vh; max-width:640px; z-index:2; }
+  .eyebrow { font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--cyan); margin-bottom:18px; }
+  .hero h1 { font-size:clamp(48px, 7.2vw, 104px); line-height:.95; margin:0 0 22px; letter-spacing:-.01em; }
+  .hero h1 em { font-style:italic; color:#ffd7f3; }
+  .hero p.lead { font-size:18px; font-weight:300; color:#c9cdd9; margin:0 0 34px; max-width:520px; }
+  .stats { display:flex; gap:38px; margin-bottom:38px; }
+  .stats div b { display:block; font-family:"Instrument Serif", Georgia, serif; font-size:40px; font-weight:400; line-height:1; }
+  .stats div span { font-size:12px; color:var(--mut); letter-spacing:.06em; text-transform:uppercase; }
+  .cta { display:flex; gap:14px; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:10px; padding:13px 22px; border-radius:999px; font-size:14px; font-weight:500; transition:.2s; }
+  .btn.pri { background:var(--fg); color:#07080c; }
+  .btn.pri:hover { background:#fff; transform:translateY(-1px); }
+  .btn.sec { border:1px solid rgba(255,255,255,.28); backdrop-filter:blur(6px); background:rgba(255,255,255,.04); }
+  .btn.sec:hover { border-color:#fff; }
+  .legend { position:absolute; right:48px; bottom:13vh; z-index:2; font-size:12px; color:#c9cdd9; background:rgba(7,8,12,.55); backdrop-filter:blur(10px); padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.08); }
+  .legend .row { display:flex; align-items:center; gap:9px; margin:4px 0; }
+  .legend i { width:9px; height:9px; border-radius:50%; box-shadow:0 0 10px currentColor; }
+  .legend .cap { margin-top:9px; padding-top:9px; border-top:1px solid rgba(255,255,255,.1); color:var(--mut); font-size:11px; max-width:210px; }
+  .scroll { position:absolute; left:50%; bottom:28px; transform:translateX(-50%); z-index:2; font-size:11px; letter-spacing:.2em; color:var(--mut); text-transform:uppercase; }
+
+  /* ---------- 通用区块 ---------- */
+  section { padding:110px 48px; max-width:1360px; margin:0 auto; }
+  .sec-head { display:flex; justify-content:space-between; align-items:end; gap:30px; margin-bottom:44px; flex-wrap:wrap; }
+  .sec-head h2 { font-size:clamp(34px, 4.4vw, 56px); margin:0; line-height:1; }
+  .sec-head p { color:var(--mut); max-width:460px; margin:0; }
+
+  /* 精选 */
+  .feature { display:grid; grid-template-columns:1.05fr 1fr; gap:64px; align-items:center; }
+  .feature .pic { position:relative; border-radius:18px; overflow:hidden; aspect-ratio:1; }
+  .feature .pic img { width:100%; height:100%; object-fit:cover; display:block; transition:transform 1.2s; }
+  .feature .pic:hover img { transform:scale(1.05); }
+  .feature .pic .tag { position:absolute; left:16px; bottom:16px; font-size:11px; padding:5px 10px; border-radius:999px; background:rgba(7,8,12,.7); backdrop-filter:blur(6px); color:#c9cdd9; }
+  .feature h3 { font-size:clamp(30px,3.2vw,44px); margin:0 0 18px; line-height:1.05; }
+  .feature p { color:#b7bccb; margin:0 0 26px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:30px; }
+  .chip { font-size:12.5px; padding:6px 12px; border-radius:999px; border:1px solid var(--line); color:#c9cdd9; transition:.2s; }
+  a.chip:hover { border-color:var(--fg); color:var(--fg); }
+  .chip i { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:7px; vertical-align:1px; }
+
+  /* 数据集卡片 */
+  .filters { display:flex; gap:8px; flex-wrap:wrap; }
+  .filters button { font:inherit; font-size:13px; color:var(--mut); background:none; border:1px solid var(--line); padding:7px 15px; border-radius:999px; cursor:pointer; transition:.2s; }
+  .filters button.on, .filters button:hover { color:var(--fg); border-color:var(--fg); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:18px; }
+  .card { position:relative; background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:transform .25s, border-color .25s; }
+  .card:hover { transform:translateY(-3px); border-color:#3a4058; }
+  .card .thumb { aspect-ratio:16/10; position:relative; overflow:hidden; }
+  .card .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .card .thumb .gen { position:absolute; inset:0; }
+  .card .thumb .plat { position:absolute; left:12px; top:12px; font-size:11px; letter-spacing:.06em; padding:4px 9px; border-radius:6px; background:rgba(7,8,12,.72); backdrop-filter:blur(6px); }
+  .status { position:absolute; right:12px; top:12px; font-size:11px; padding:4px 9px; border-radius:6px; background:rgba(7,8,12,.72); backdrop-filter:blur(6px); display:flex; align-items:center; gap:6px; }
+  .status i { width:7px; height:7px; border-radius:50%; }
+  .card .body { padding:16px 18px 18px; flex:1; display:flex; flex-direction:column; }
+  .card h4 { margin:0 0 4px; font-size:16px; font-weight:600; }
+  .card .src { font-size:12.5px; color:var(--mut); margin-bottom:10px; }
+  .card .desc { font-size:13.5px; color:#b7bccb; margin:0 0 14px; flex:1; }
+  .card .meta { display:flex; flex-wrap:wrap; gap:6px; }
+  .card .meta span { font-size:11px; padding:3px 8px; border-radius:5px; background:var(--panel2); color:#a8aec0; }
+  .card .open { margin-top:14px; font-size:13px; font-weight:500; color:var(--cyan); }
+  .card.locked .open { color:var(--wait); }
+
+  /* 矩阵 */
+  .matrix-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:14px; }
+  table { border-collapse:collapse; width:100%; min-width:900px; font-size:13px; }
+  th, td { padding:11px 14px; border-bottom:1px solid var(--line); text-align:center; }
+  th { font-weight:500; color:var(--mut); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; background:var(--panel); position:sticky; top:0; }
+  td:first-child, th:first-child { text-align:left; }
+  td:first-child { font-weight:500; white-space:nowrap; }
+  td:first-child small { display:block; color:var(--mut); font-weight:400; font-size:11.5px; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(255,255,255,.02); }
+  .dot { display:inline-block; width:11px; height:11px; border-radius:50%; }
+  .dot.y { background:var(--live); box-shadow:0 0 8px rgba(86,227,159,.5); }
+  .dot.p { background:none; border:2px solid var(--proc); }
+  .dot.n { background:var(--line); width:7px; height:7px; }
+  .mlegend { display:flex; gap:22px; margin-top:14px; font-size:12px; color:var(--mut); }
+  .mlegend span { display:flex; align-items:center; gap:7px; }
+
+  footer { border-top:1px solid var(--line); padding:40px 48px 60px; color:var(--mut); font-size:12.5px; display:flex; justify-content:space-between; gap:20px; flex-wrap:wrap; max-width:1360px; margin:0 auto; }
+  .mock { color:var(--proc); }
+
+  @media (max-width:860px) {
+    nav { padding:18px 16px; } nav .links { display:none; }
+    .hero .content { left:16px; right:16px; bottom:18vh; }
+    .legend { display:none; }
+    .stats { gap:24px; } .stats div b { font-size:30px; }
+    section { padding:72px 16px; }
+    .feature { grid-template-columns:1fr; gap:32px; }
+    footer { padding:32px 16px 48px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= 首屏 ================= -->
+<header class="hero">
+  <div class="bg" role="img" aria-label="RA synovium, Visium HD, five marker channels"></div>
+  <div class="scrim"></div>
+  <nav>
+    <div class="brand">RA Synovium Atlas</div>
+    <div class="links"><a href="#featured">Featured</a><a href="#datasets">Datasets</a><a href="#coverage">Coverage</a><a href="#about">About</a><a href="#" onclick="atlasLogout();return false" id="signout">Sign out</a></div>
+  </nav>
+  <div class="content">
+    <div class="eyebrow">Spatial atlas · Rheumatoid arthritis · Public data</div>
+    <h1 class="serif">Mapping <em>rheumatoid</em> synovium</h1>
+    <p class="lead">Interactive spatial transcriptomic maps of RA synovium from public datasets, explorable gene by gene at full resolution.</p>
+    <div class="stats" id="stats"></div>
+    <div class="cta">
+      <a class="btn pri" href="#datasets">Explore datasets →</a>
+      <a class="btn sec" href="viewers/visiumhd/visiumhd.html#ov=MS4A1&s=1">Open live viewer</a>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="row"><i style="color:var(--cyan);background:var(--cyan)"></i>Lining fibroblasts · PRG4</div>
+    <div class="row"><i style="color:var(--mag);background:var(--mag)"></i>B cells / ELS · MS4A1 CR2 CXCL13</div>
+    <div class="row"><i style="color:var(--amb);background:var(--amb)"></i>T cells · CD3E</div>
+    <div class="row"><i style="color:var(--org);background:var(--org)"></i>Plasma cells · JCHAIN</div>
+    <div class="row"><i style="color:var(--blu);background:var(--blu)"></i>Sublining stroma · COL1A1</div>
+    <div class="cap">RA synovium, Visium HD 8 µm bins (Bhamidipati et al. 2026, Nat Immunol)</div>
+  </div>
+  <div class="scroll">Scroll</div>
+</header>
+
+<!-- ================= 精选 ================= -->
+<section id="featured">
+  <div class="feature">
+    <a class="pic" href="viewers/visiumhd/visiumhd.html#ov=MS4A1&s=1">
+      <img src="img/els_zoom.jpg" alt="Zoom on a lymphoid aggregate in RA synovium">
+      <span class="tag">≈1.6 mm field · Visium HD</span>
+    </a>
+    <div>
+      <div class="eyebrow">Featured view</div>
+      <h3 class="serif">One aggregate, five lineages</h3>
+      <p>A B-cell-rich aggregate in the sublining, surrounded by T and plasma cells beneath a PRG4⁺ lining layer. Each marker opens in the live viewer at full resolution.</p>
+      <div class="chips">
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=MS4A1&s=1"><i style="background:var(--mag)"></i>MS4A1</a>
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=CXCL13&s=1"><i style="background:var(--mag)"></i>CXCL13</a>
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=CR2&s=1"><i style="background:var(--mag)"></i>CR2 (FDC)</a>
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=CD3E&s=1"><i style="background:var(--amb)"></i>CD3E</a>
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=JCHAIN&s=1"><i style="background:var(--org)"></i>JCHAIN</a>
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=PRG4&s=1"><i style="background:var(--cyan)"></i>PRG4</a>
+        <a class="chip" href="viewers/visiumhd/visiumhd.html#ov=clusters"><i style="background:#fff"></i>Clusters</a>
+      </div>
+      <a class="btn sec" href="viewers/visiumhd/visiumhd.html#ov=MS4A1&s=1">Open in viewer →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 数据集 ================= -->
+<section id="datasets">
+  <div class="sec-head">
+    <h2 class="serif">Datasets</h2>
+    
+  </div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- ================= 覆盖矩阵 ================= -->
+<section id="coverage">
+  <div class="sec-head">
+    <h2 class="serif">What each dataset holds</h2>
+    <p>Modalities available per dataset. Views appear in the viewer only where the data support them.</p>
+  </div>
+  <div class="matrix-wrap"><table id="matrix"></table></div>
+  <div class="mlegend"><span><i class="dot y"></i>Available</span><span><i class="dot p"></i>Partial / pending</span><span><i class="dot n"></i>Not in dataset</span></div>
+</section>
+
+<footer id="about">
+  <div>RA Synovium Atlas · Shitong Sun, Queen Mary University of London</div>
+  <div>Data: Bhamidipati et al. 2026, Nat Immunol, used under the original licence.</div>
+</footer>
+
+<script>
+// ===== 数据集登记表（以后从 data/registry.json 读取）=====
+// status: live = 已接入 viewer；proc = 处理中；wait = 等待数据
+// has: 各模态的可用性 y / p / n，对应覆盖矩阵的列
+const MODS = [["he","H&E"],["sc","Single-cell"],["wt","Whole transcriptome"],["prot","Protein"],["els","ELS annotation"],["clin","Clinical"]];
+const DATASETS = [
+  {id:"bham_vhd", title:"RA synovium Visium HD", src:"Bhamidipati et al. 2026 · Nat Immunol", disease:"RA", source:"public", platform:"Visium HD", status:"live",
+   href:"viewers/visiumhd/visiumhd.html#ov=MS4A1&s=1", img:"img/els_zoom.jpg",
+   desc:"Whole-transcriptome 8 µm bins over one treatment-naive RA biopsy.", meta:["1 biopsy","474k bins","18k genes"], has:{he:"p",sc:"n",wt:"y",prot:"n",els:"p",clin:"y"}},
+  {id:"bham_x5k", title:"RA synovium Xenium 5K", src:"Bhamidipati et al. 2026 · Nat Immunol", disease:"RA", source:"public", platform:"Xenium 5K", status:"live",
+   href:"viewers/xenium5k/xenium5k.html#p=3&ov=composite", img:"img/x5k_thumb.jpg",
+   desc:"Single-cell 5,000-gene maps of pre-treatment RA biopsies, with pathotype and 6-month response.", meta:["17 patients","5,101 genes","single cell"], has:{he:"n",sc:"y",wt:"p",prot:"n",els:"p",clin:"y"}},
+];
+
+const STATUS = {live:["Live","var(--live)"], proc:["Processing","var(--proc)"], wait:["Awaiting data","var(--wait)"]};
+// 平台 → 占位缩略图的色调
+const HUE = {"Xenium":190,"Xenium 5K":190,"GeoMx":28,"Hyperion":300,"CellDive":265,"CosMx":150,"Visium":340,"Visium HD":340};
+
+function thumb(d) {
+  if (d.img) return `<img src="${d.img}" alt="">`;
+  const h = HUE[d.platform] ?? (d.platform.length * 37) % 360;
+  // 生成式占位图：几团柔光斑点，模拟荧光组织
+  const blobs = [0,1,2,3,4].map(i => {
+    const x = (d.id.charCodeAt(i % d.id.length) * 7 + i * 23) % 100, y = (d.id.charCodeAt((i + 3) % d.id.length) * 11 + i * 17) % 100;
+    return `radial-gradient(circle at ${x}% ${y}%, hsla(${(h + i * 40) % 360},70%,55%,.32), transparent ${22 + i * 4}%)`;
+  }).join(",");
+  return `<div class="gen" style="background:${blobs}, #0b0d14"></div>`;
+}
+
+function renderCards(filter) {
+  const list = DATASETS.filter(d => filter === "All" || d.disease === filter || d.source === filter.toLowerCase()
+    || (filter === "OA & JIA" && d.disease !== "RA"));
+  document.getElementById("grid").innerHTML = list.map(d => {
+    const [lab, col] = STATUS[d.status];
+    const tag = d.href ? "a" : "div";
+    return `<${tag} class="card ${d.href ? "" : "locked"}" ${d.href ? `href="${d.href}"` : ""}>
+      <div class="thumb">${thumb(d)}<span class="plat">${d.platform}</span><span class="status"><i style="background:${col}"></i>${lab}</span></div>
+      <div class="body"><h4>${d.title}</h4><div class="src">${d.src}</div><p class="desc">${d.desc}</p>
+        <div class="meta"><span>${d.disease}</span><span>${d.source}</span>${d.meta.map(m => `<span>${m}</span>`).join("")}</div>
+        <div class="open">${d.href ? "Open viewer →" : (d.status === "proc" ? "Coming soon" : "Not yet connected")}</div></div>
+    </${tag}>`;
+  }).join("");
+}
+
+function renderFilters() {
+  const opts = ["All", "In-house", "Public"];
+  const el = document.getElementById("filters");
+  el.innerHTML = opts.map((o, i) => `<button class="${i ? "" : "on"}" data-f="${o}">${o}</button>`).join("");
+  el.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    el.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    renderCards(b.dataset.f);
+  };
+}
+
+function renderMatrix() {
+  const head = `<tr><th>Dataset</th><th>Platform</th>${MODS.map(m => `<th>${m[1]}</th>`).join("")}<th>Status</th></tr>`;
+  const rows = DATASETS.map(d => `<tr><td>${d.href ? `<a href="${d.href}">${d.title} ↗</a>` : d.title}<small>${d.src}</small></td><td>${d.platform}</td>
+    ${MODS.map(m => `<td><i class="dot ${d.has[m[0]]}" title="${m[1]}"></i></td>`).join("")}
+    <td style="color:${STATUS[d.status][1]}">${STATUS[d.status][0]}</td></tr>`).join("");
+  document.getElementById("matrix").innerHTML = head + rows;
+}
+
+function renderStats() {
+  const plats = new Set(DATASETS.flatMap(d => d.platform.split(" · ").map(p => p.replace(" 5K", "").replace(" HD", ""))));
+  const s = [[DATASETS.length, "Datasets"], [plats.size, "Platforms"], [DATASETS.filter(d => d.status === "live").length, "Live"]];
+  document.getElementById("stats").innerHTML = s.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join("");
+}
+
+renderStats(); renderCards("All"); renderMatrix();
+</script>
+</body>
+</html>
