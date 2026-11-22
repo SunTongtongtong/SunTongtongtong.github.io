@@ -29,6 +29,7 @@
   table.cl { border-collapse:collapse; width:100%; font-size:12px; }
   table.cl td, table.cl th { border-bottom:1px solid #2a2a30; padding:4px 6px; text-align:left; vertical-align:top; }
   table.cl th { color:var(--mut); font-weight:500; }
+  table.cl tr.hl { cursor:pointer; } table.cl tr.hl:hover { background:#1d1d22; } table.cl tr.on td { background:#1d3350; }
   .sw { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-2px; margin-right:4px; }
   .note { color:var(--mut); font-size:12px; padding:8px 10px; background:var(--panel); border-radius:6px; margin-top:12px; }
   .note b { color:var(--fg); } .warn { color:var(--warn); }
@@ -65,9 +66,9 @@ const ANN = {1:'Sublining fibroblasts / ECM (COMP+, COL1A1)',2:'High mitochondri
   10:'Vascular smooth muscle (MYH11, CNN1)',11:'T / B lymphocytes (TRAC, IL7R, MS4A1)'};
 
 // ---------- 叠加选项 ----------
-const ORDER = ['clusters','total_umi', ...D.groups.flatMap(g=>g[1])];
+const ORDER = ['clusters', ...D.clusters.map(c=>'cluster_'+c.id), 'total_umi', ...D.groups.flatMap(g=>g[1])];
 $('#ov').innerHTML = '<option value="">None</option><option value="clusters">graphclust clusters</option><option value="total_umi">Total UMI</option>' +
-  D.groups.map(([g,gs])=>`<optgroup label="${g}">${gs.map(x=>`<option value="${x}">${x}</option>`).join('')}</optgroup>`).join('');
+  D.groups.map(([g,gs])=>`<optgroup label="${g}">${gs.map(x=>`<option value="${x}">${x}</option>`).join('')}</optgroup>`).join('') + `<optgroup label="Single cluster">${D.clusters.map(c=>`<option value="cluster_${c.id}">Cluster ${c.id}${ANN[c.id]?' · '+ANN[c.id].split(' (')[0]:''}</option>`).join('')}</optgroup>`;
 
 // ---------- 大图 ----------
 const viewer = OpenSeadragon({ element:$('#osd'), prefixUrl:'', showNavigationControl:false, imageSmoothingEnabled:false,
@@ -76,11 +77,12 @@ const viewer = OpenSeadragon({ element:$('#osd'), prefixUrl:'', showNavigationCo
 let ovItem=null, heItem=null;
 viewer.addHandler('open', ()=>{ heItem=viewer.world.getItemAt(0); setOverlay(); });
 
-function ovUrl(k){ const smooth=$('#sm').checked && D.overlays[k] && D.overlays[k].hi_s!=null; return `ov/${k}${smooth?'_s':''}.png`; }
+function ovUrl(k){ if (k.startsWith('cluster_')) return `ov/${k}.png`; const smooth=$('#sm').checked && D.overlays[k] && D.overlays[k].hi_s!=null; return `ov/${k}${smooth?'_s':''}.png`; }
 function setOverlay(){
   if (ovItem){ viewer.world.removeItem(ovItem); ovItem=null; }
   const k=$('#ov').value; drawLegend(k);
   document.querySelectorAll('.gb').forEach(e=>e.classList.toggle('on', e.dataset.k==k));
+  document.querySelectorAll('tr.hl').forEach(e=>e.classList.toggle('on', e.dataset.k==k));
   history.replaceState(null,'', '#'+new URLSearchParams({ov:k, s:$('#sm').checked?1:0}).toString());
   if (!k) return;
   viewer.addTiledImage({ tileSource:{type:'image', url:ovUrl(k), buildPyramid:true}, x:0, y:0, width:1,
@@ -88,6 +90,8 @@ function setOverlay(){
 }
 function drawLegend(k){
   const L=$('#legend'); L.innerHTML=''; if (!k) return;
+  if (k.startsWith('cluster_')){ const c=D.clusters.find(c=>'cluster_'+c.id==k);
+    L.innerHTML=`<span class="sw" style="background:rgb(${c.color.join(',')})"></span>Cluster ${c.id}${ANN[c.id]?' · '+ANN[c.id]:''} <span>(other clusters in grey; click the row again for all)</span>`; return; }
   const o=D.overlays[k];
   if (o.kind=='cat'){ L.innerHTML='Colours: see cluster table on the right'; return; }
   const smooth=$('#sm').checked && o.hi_s!=null;
@@ -119,9 +123,9 @@ ${D.groups.map(([g,gs])=>`<div class="grp"><div class="gl">${g}</div>${gs.map(x=
   return `<span class="gb" data-k="${x}" title="Total UMI ${fmt(o.total)}">${x}<small>${fmt(100*o.frac,1)}%</small></span>`}).join('')}</div>`).join('')}
 <div class="sub">Percentage = fraction of bins with UMI &gt; 0. 8 µm bins are sparse (PTPRC is detected in only 0.4%), so smoothed maps are shown by default.</div>
 
-<h2>graphclust clusters (Space Ranger)</h2>
+<h2>graphclust clusters (Space Ranger) <span class="sub">click a row to highlight that cluster</span></h2>
 <table class="cl"><tr><th>Cluster</th><th>Bins</th><th>Provisional label</th><th>Top marker genes</th></tr>
-${D.clusters.map(c=>`<tr><td><span class="sw" style="background:rgb(${c.color.join(',')})"></span>${c.id}</td><td>${fmt(c.n)}</td><td>${ANN[c.id]||''}</td><td class="sub">${c.top.join(', ')}</td></tr>`).join('')}
+${D.clusters.map(c=>`<tr class="hl" data-k="cluster_${c.id}"><td><span class="sw" style="background:rgb(${c.color.join(',')})"></span>${c.id}</td><td>${fmt(c.n)}</td><td>${ANN[c.id]||''}</td><td class="sub">${c.top.join(', ')}</td></tr>`).join('')}
 </table>
 <div class="sub">Labels are read manually from differentially expressed genes; no formal cell-type annotation has been run.</div>
 
@@ -140,6 +144,7 @@ ${D.clusters.map(c=>`<tr><td><span class="sw" style="background:rgb(${c.color.jo
 </div>`;
 $('#right').innerHTML = h;
 document.querySelectorAll('.gb').forEach(e=>e.onclick=()=>{ $('#ov').value=e.dataset.k; setOverlay(); });
+document.querySelectorAll('tr.hl').forEach(e=>e.onclick=()=>{ $('#ov').value = $('#ov').value==e.dataset.k ? 'clusters' : e.dataset.k; setOverlay(); });
 
 window.onkeydown=e=>{
   if (e.target.tagName=='SELECT') return;
